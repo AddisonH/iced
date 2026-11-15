@@ -85,6 +85,7 @@ impl Text {
                 transformation,
                 ..
             } => Rectangle::new(*position, paragraph.min_bounds)
+                .expand(paragraph.effects_reach)
                 .intersection(clip_bounds)
                 .map(|bounds| bounds * *transformation),
             Text::Editor {
