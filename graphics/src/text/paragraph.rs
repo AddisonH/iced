@@ -29,6 +29,8 @@ struct Internal {
     hint: bool,
     hint_factor: f32,
     selection: Option<Selection>,
+    /// Per span, or empty if no span has any.
+    effects: Vec<text::Effects>,
 }
 
 #[derive(Clone)]
@@ -49,6 +51,11 @@ impl Paragraph {
         &self.internal().buffer
     }
 
+    /// The outline and shadow of each span, indexed like the spans; empty if no span has any.
+    pub fn effects(&self) -> &[text::Effects] {
+        &self.internal().effects
+    }
+
     /// Creates a [`Weak`] reference to the [`Paragraph`].
     ///
     /// This is useful to avoid cloning the [`Paragraph`] when
@@ -62,6 +69,11 @@ impl Paragraph {
             min_bounds: paragraph.min_bounds,
             align_x: paragraph.align_x,
             align_y: paragraph.align_y,
+            effects_reach: paragraph
+                .effects
+                .iter()
+                .map(text::Effects::reach)
+                .fold(0.0, f32::max),
         }
     }
 
@@ -128,6 +140,7 @@ impl core::text::Paragraph for Paragraph {
             min_bounds,
             version: font_system.version(),
             selection: None,
+            effects: Vec::new(),
         }))
     }
 
@@ -202,6 +215,22 @@ impl core::text::Paragraph for Paragraph {
 
         let min_bounds = text::align(&mut buffer, font_system.raw(), text.align_x) / hint_factor;
 
+        let effects = if text
+            .content
+            .iter()
+            .any(|span| span.outline.is_some() || span.shadow.is_some())
+        {
+            text.content
+                .iter()
+                .map(|span| text::Effects {
+                    outline: span.outline,
+                    shadow: span.shadow,
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
+
         Self(Arc::new(Internal {
             buffer,
             hint,
@@ -216,6 +245,7 @@ impl core::text::Paragraph for Paragraph {
             min_bounds,
             version: font_system.version(),
             selection: None,
+            effects,
         }))
     }
 
@@ -605,6 +635,7 @@ impl PartialEq for Internal {
             && self.bounds == other.bounds
             && self.min_bounds == other.min_bounds
             && self.buffer.metrics() == other.buffer.metrics()
+            && self.effects == other.effects
     }
 }
 
@@ -627,6 +658,7 @@ impl Default for Internal {
             hint: false,
             hint_factor: 1.0,
             selection: None,
+            effects: Vec::new(),
         }
     }
 }
@@ -641,6 +673,9 @@ pub struct Weak {
     pub align_x: Alignment,
     /// The vertical alignment of the [`Paragraph`].
     pub align_y: alignment::Vertical,
+    /// How far the outlines and shadows of the [`Paragraph`] reach past its glyphs, in logical
+    /// pixels.
+    pub effects_reach: f32,
 }
 
 impl Weak {

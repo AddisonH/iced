@@ -11,7 +11,7 @@ pub use cosmic_text;
 
 use crate::core::alignment;
 use crate::core::font::{self, Font};
-use crate::core::text::{Alignment, Ellipsis, Shaping, Wrapping};
+use crate::core::text::{Alignment, Ellipsis, Outline, Shadow, Shaping, Wrapping};
 use crate::core::{Color, Pixels, Point, Rectangle, Size, Transformation};
 
 use std::borrow::Cow;
@@ -391,6 +391,27 @@ pub fn to_ellipsize(ellipsis: Ellipsis, max_height: f32) -> cosmic_text::Ellipsi
         Ellipsis::Start => cosmic_text::Ellipsize::Start(limit),
         Ellipsis::Middle => cosmic_text::Ellipsize::Middle(limit),
         Ellipsis::End => cosmic_text::Ellipsize::End(limit),
+    }
+}
+
+/// The outline and shadow of a span of rich text.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct Effects {
+    /// The [`Outline`] of the span.
+    pub outline: Option<Outline>,
+    /// The [`Shadow`] of the span.
+    pub shadow: Option<Shadow>,
+}
+
+impl Effects {
+    /// How far the effects reach past their glyphs, in logical pixels.
+    pub fn reach(&self) -> f32 {
+        let outline = self.outline.map_or(0.0, |outline| outline.width);
+        let shadow = self.shadow.map_or(0.0, |shadow| {
+            shadow.offset.x.abs().max(shadow.offset.y.abs())
+        });
+
+        outline + shadow
     }
 }
 

@@ -4,7 +4,7 @@ use crate::core::{Rectangle, Size, Transformation, Vector};
 use crate::graphics::cache;
 use crate::graphics::color;
 use crate::graphics::text::cache::{self as text_cache, Cache as BufferCache};
-use crate::graphics::text::{Editor, Paragraph, font_system, to_color};
+use crate::graphics::text::{self, Editor, Paragraph, font_system, to_color};
 use crate::nudge;
 
 use rustc_hash::FxHashMap;
@@ -493,10 +493,29 @@ fn prepare(
         })
         .collect();
 
+    // The text areas borrow these.
+    let effects: Vec<Vec<cryoglyph::GlyphEffects>> = sections
+        .iter()
+        .zip(allocations.iter())
+        .map(|(section, allocation)| match (section, allocation) {
+            (Text::Paragraph { transformation, .. }, Some(Allocation::Paragraph(paragraph))) => {
+                let scale = transformation.scale_factor() * layer_transformation.scale_factor();
+
+                paragraph
+                    .effects()
+                    .iter()
+                    .map(|effects| to_glyph_effects(effects, scale))
+                    .collect()
+            }
+            _ => Vec::new(),
+        })
+        .collect();
+
     let text_areas = sections
         .iter()
         .zip(allocations.iter())
-        .filter_map(|(section, allocation)| {
+        .zip(effects.iter())
+        .filter_map(|((section, allocation), effects)| {
             let (buffer, hint_factor, position, color, clip_bounds, transformation) = match section
             {
                 Text::Paragraph {
@@ -636,6 +655,7 @@ fn prepare(
                     right: (clip_bounds.x + clip_bounds.width) as i32,
                     bottom: (clip_bounds.y + clip_bounds.height) as i32,
                 },
+                effects,
                 default_color: to_color(color),
             })
         });
@@ -650,4 +670,21 @@ fn prepare(
         text_areas,
         &mut cryoglyph::SwashCache::new(),
     )
+}
+
+/// Converts the effects of a span to physical pixels.
+fn to_glyph_effects(effects: &text::Effects, scale: f32) -> cryoglyph::GlyphEffects {
+    cryoglyph::GlyphEffects {
+        outline: effects.outline.map(|outline| cryoglyph::Outline {
+            color: to_color(outline.color),
+            width: outline.width * scale,
+        }),
+        shadow: effects.shadow.map(|shadow| cryoglyph::Shadow {
+            color: to_color(shadow.color),
+            offset: [
+                (shadow.offset.x * scale).round() as i32,
+                (shadow.offset.y * scale).round() as i32,
+            ],
+        }),
+    }
 }
