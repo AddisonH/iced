@@ -13,7 +13,7 @@ pub use paragraph::Paragraph;
 pub use parser::Parser;
 
 use crate::alignment;
-use crate::{Background, Border, Color, Font, Padding, Pixels, Point, Rectangle, Size};
+use crate::{Background, Border, Color, Font, Padding, Pixels, Point, Rectangle, Size, Vector};
 
 use std::borrow::Cow;
 use std::hash::{Hash, Hasher};
@@ -425,6 +425,10 @@ pub struct Span<'a, Link = ()> {
     pub underline: bool,
     /// Whether the [`Span`] should be struck through or not.
     pub strikethrough: bool,
+    /// The [`Outline`] of the [`Span`].
+    pub outline: Option<Outline>,
+    /// The [`Shadow`] of the [`Span`].
+    pub shadow: Option<Shadow>,
 }
 
 /// A text highlight.
@@ -434,6 +438,28 @@ pub struct Highlight {
     pub background: Background,
     /// The [`Border`] of the highlight.
     pub border: Border,
+}
+
+/// A border drawn around each glyph of some text.
+///
+/// Like a [`Shadow`], it takes no space in the layout, so it can be clipped at the edges of its
+/// container.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Outline {
+    /// The [`Color`] of the outline.
+    pub color: Color,
+    /// The width of the outline, in logical pixels.
+    pub width: f32,
+}
+
+/// A copy of each glyph of some text, outline included, drawn in one [`Color`] at an offset,
+/// without blur.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Shadow {
+    /// The [`Color`] of the shadow.
+    pub color: Color,
+    /// The offset of the shadow, in logical pixels.
+    pub offset: Vector,
 }
 
 impl<'a, Link> Span<'a, Link> {
@@ -569,6 +595,18 @@ impl<'a, Link> Span<'a, Link> {
         self
     }
 
+    /// Sets the [`Outline`] of the [`Span`].
+    pub fn outline(mut self, outline: impl Into<Option<Outline>>) -> Self {
+        self.outline = outline.into();
+        self
+    }
+
+    /// Sets the [`Shadow`] of the [`Span`].
+    pub fn shadow(mut self, shadow: impl Into<Option<Shadow>>) -> Self {
+        self.shadow = shadow.into();
+        self
+    }
+
     /// Turns the [`Span`] into a static one.
     pub fn to_static(self) -> Span<'static, Link> {
         Span {
@@ -582,6 +620,8 @@ impl<'a, Link> Span<'a, Link> {
             padding: self.padding,
             underline: self.underline,
             strikethrough: self.strikethrough,
+            outline: self.outline,
+            shadow: self.shadow,
         }
     }
 }
@@ -599,6 +639,8 @@ impl<Link> Default for Span<'_, Link> {
             padding: Padding::default(),
             underline: false,
             strikethrough: false,
+            outline: None,
+            shadow: None,
         }
     }
 }
@@ -616,6 +658,8 @@ impl<Link> PartialEq for Span<'_, Link> {
             && self.line_height == other.line_height
             && self.font == other.font
             && self.color == other.color
+            && self.outline == other.outline
+            && self.shadow == other.shadow
     }
 }
 
