@@ -1123,13 +1123,14 @@ checksum = "460fbee9c2c2f33933d720630a6a0bac33ba7053db5344fac858d4b8952d77d5"
 [[package]]
 name = "cryoglyph"
 version = "0.1.0"
-source = "git+https://github.com/iced-rs/cryoglyph.git?rev=cf38ed5ea0cfe95270b31ced2910560a7fcc5003#cf38ed5ea0cfe95270b31ced2910560a7fcc5003"
+source = "git+https://github.com/AddisonH/cryoglyph.git?rev=3a90a54775520fd3d43b2827e0ffe875924c9c13#3a90a54775520fd3d43b2827e0ffe875924c9c13"
 dependencies = [
  "cosmic-text",
  "etagere",
  "lru",
  "rustc-hash 2.1.3",
  "wgpu",
+ "zeno",
 ]
 
 [[package]]
