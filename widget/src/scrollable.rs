@@ -379,6 +379,7 @@ pub struct Scrollbar {
     width: f32,
     margin: f32,
     scroller_width: f32,
+    scroller_min_length: f32,
     alignment: Anchor,
     spacing: Option<f32>,
     padding: f32,
@@ -390,6 +391,7 @@ impl Default for Scrollbar {
             width: 10.0,
             margin: 0.0,
             scroller_width: 10.0,
+            scroller_min_length: 2.0,
             alignment: Anchor::Start,
             spacing: None,
             padding: 0.0,
@@ -424,6 +426,13 @@ impl Scrollbar {
     /// Sets the scroller width of the [`Scrollbar`] .
     pub fn scroller_width(mut self, scroller_width: impl Into<Pixels>) -> Self {
         self.scroller_width = scroller_width.into().0.max(0.0);
+        self
+    }
+
+    /// Sets the minimum length of the scroller of the [`Scrollbar`], so it stays easy to grab
+    /// on very long content.
+    pub fn scroller_min_length(mut self, scroller_min_length: impl Into<Pixels>) -> Self {
+        self.scroller_min_length = scroller_min_length.into().0.max(0.0);
         self
     }
 
@@ -3171,6 +3180,7 @@ impl Scrollbars {
                 width,
                 margin,
                 scroller_width,
+                scroller_min_length,
                 spacing,
                 padding,
                 ..
@@ -3208,10 +3218,12 @@ impl Scrollbars {
             let scroller = if ratio >= 1.0 {
                 None
             } else {
-                // min height for easier grabbing with super tall content
-                let scroller_height = (scrollbar_bounds.height * ratio).max(2.0);
-                let scroller_offset =
-                    translation.y * ratio * scrollbar_bounds.height / bounds.height;
+                let (scroller_height, scroller_offset) = scroller(
+                    scrollbar_bounds.height,
+                    ratio,
+                    scroller_min_length,
+                    translation.y / (content.height - bounds.height),
+                );
 
                 let scroller_bounds = Rectangle {
                     x: bounds.x + bounds.width - total_scrollbar_width / 2.0 - scroller_width / 2.0,
@@ -3242,6 +3254,7 @@ impl Scrollbars {
                 width,
                 margin,
                 scroller_width,
+                scroller_min_length,
                 spacing,
                 padding,
                 ..
@@ -3279,9 +3292,12 @@ impl Scrollbars {
             let scroller = if ratio >= 1.0 {
                 None
             } else {
-                // min width for easier grabbing with extra wide content
-                let scroller_length = (scrollbar_bounds.width * ratio).max(2.0);
-                let scroller_offset = translation.x * ratio * scrollbar_bounds.width / bounds.width;
+                let (scroller_length, scroller_offset) = scroller(
+                    scrollbar_bounds.width,
+                    ratio,
+                    scroller_min_length,
+                    translation.x / (content.width - bounds.width),
+                );
 
                 let scroller_bounds = Rectangle {
                     x: (scrollbar_bounds.x + scroller_offset).max(0.0),
@@ -3390,6 +3406,17 @@ impl Scrollbars {
     fn active(&self) -> bool {
         self.y.is_some() || self.x.is_some()
     }
+}
+
+/// The length of a scroller on a rail of the given length, and its offset along the rail for
+/// the given scrolled fraction.
+///
+/// A scroller held at its minimum length is longer than its share of the rail, so it moves
+/// along the rail minus its own length, which is also what dragging it assumes.
+fn scroller(rail: f32, ratio: f32, min_length: f32, scrolled: f32) -> (f32, f32) {
+    let length = (rail * ratio).max(min_length).min(rail);
+
+    (length, scrolled * (rail - length))
 }
 
 pub(super) mod internals {
