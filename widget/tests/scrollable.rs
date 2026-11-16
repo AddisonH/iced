@@ -1129,6 +1129,44 @@ fn snap_to_end_with_smooth_behavior_preserves_other_axis_snappedness() {
     );
 }
 
+/// A scroller held at its minimum length can be grabbed along all of it, and dragging it
+/// covers the whole content as it travels the rest of the rail.
+#[test]
+fn scroller_min_length_keeps_dragging_in_step() {
+    let mut simulator = simulate(element(3000, 200).direction(Direction::Vertical(
+        Scrollbar::new().scroller_min_length(40),
+    )));
+
+    let mut instant = Instant::now();
+    step_frames(&mut simulator, &mut instant, 1);
+
+    // y = 35 is past the 13.33 px the scroller would otherwise have, but on
+    // the 40 px one: a grab, not a rail press
+    simulator.point_at(Point::new(1019.0, 35.0));
+    let _ = simulator.simulate([Event::Mouse(mouse::Event::ButtonPressed(
+        mouse::Button::Left,
+    ))]);
+
+    let mut drag_to = |y: f32| {
+        simulator.point_at(Point::new(1019.0, y));
+        let _ = simulator.simulate([Event::Mouse(mouse::Event::CursorMoved {
+            position: Point::new(1019.0, y),
+        })]);
+    };
+
+    // The scroller travels 160 px of the 200 px rail
+    drag_to(115.0);
+    drag_to(195.0);
+    drag_to(35.0);
+
+    let offsets: Vec<f32> = simulator
+        .into_messages()
+        .map(|scroll| scroll.viewport.absolute_offset().y)
+        .collect();
+
+    assert_eq!(offsets, [0.0, 1400.0, 2800.0, 0.0]);
+}
+
 #[test]
 fn scrollbar_drag_unsnaps_only_the_dragged_axis() {
     let mut simulator = simulate(element_xy(2000, 3000));
